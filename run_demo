@@ -1,0 +1,78 @@
+#! /usr/bin/bash
+
+echo "Welcome to use my demo program for CBC!"
+echo "Version 1.0"
+echo "Author Jiawei Gao"
+echo "Please notice the current version ONLY supports DEFAULT feature :)"
+echo "Please also notice the make sure your bloack size is either an even number" 
+echo "or an odd number but can be divided by total bits of your plaintext, Otherwise it won't work. Enjoy :)!"
+
+DIR=$(pwd)
+PROG=$DIR/demoBC
+FILE_IN=$DIR/demo_in
+FILE_CIPHER=$DIR/cipher_out
+FILE_DECRYPT=$DIR/decrypted_text
+
+echoerr() { echo "$@" 1>&2; }
+
+set -u
+
+echo ""
+echo "Checking required source files..."
+if [[ ! -e "$DIR/Makefile" ]] || [[ ! -e "$DIR/demoBC.c" ]]; then
+  echoerr "Missing the src $PROG or the Makefile in that directory!"
+  exit 1
+fi
+
+echo "Checking if make has been installed..."
+if [[ ! -x $(command -v make) ]]; then
+  echoerr "Missing the make. Pls make sure it is installed and executable!"
+  exit 1
+fi
+
+echo "Checking if hexdump has been installed..."
+if [[ ! -x $(command -v hexdump) ]]; then
+  echoerr "Missing the hexdump. Pls make sure it is installed and executable!"
+  exit 1
+fi
+
+# run demo but first cleanup the stale one
+if [[ -e "$FILE_CIPHER" ]]; then
+  echo "removing staled output files..."
+  rm "$FILE_CIPHER"
+fi
+
+if [[ -e "$FILE_DECRYPT" ]]; then
+  echo "removing staled output files..."
+  rm "$FILE_DECRYPT"
+fi
+
+# time to go
+echo ""
+make all
+echo "The plaintext to be encrypted is: $(cat "$FILE_IN")."
+echo ""
+echo "After Decryption we got binary stream: $(hexdump -C "$FILE_DECRYPT")."
+
+
+echo""
+"$DIR/demoBC"
+
+echo ""
+echo "After Excryption we got binary stream: $(hexdump -C "$FILE_CIPHER")."
+echo ""
+echo "After Decryption we got: $(cat "$FILE_DECRYPT")."
+echo ""
+echo "After Decryption we got binary stream: $(hexdump -C "$FILE_DECRYPT")."
+
+
+echo "Comparing files after and before encryption."
+if [[ $(diff "$FILE_DECRYPT" "$FILE_IN") ]]; then
+  echoerr "Why we got different results here?"
+  exit 1
+else
+  echo "Finger crossed! :D"
+fi  
+
+
+
