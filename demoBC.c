@@ -75,7 +75,7 @@ int *build_reverse_keymap (int keymap[], size_t key_len) {
 }
 
 // For simplicty we don't check error no here
-int do_encrypt(const char *f_plaintext, const int iv, const size_t block_size, int *keymap) {
+int do_encrypt(const char *f_plaintext, const int iv, const size_t block_size, int *keymap, int keylen) {
   int fd = open(f_plaintext, O_RDONLY, 0700);
   if (fd < 0) {
     printf("Failed to open file %s.\n", f_plaintext);
@@ -133,7 +133,7 @@ int do_encrypt(const char *f_plaintext, const int iv, const size_t block_size, i
       printf("encrypting block[%d] with size %lu.\n", n_blocks, block_size);
 
       if (n_blocks == 0) prev_c_data = iv & BLOCK_MSK(block_size); 
-      uint64_t cur_p_data = GET_BLOCK_DATA(b_data, (n_blocks * 3) % n_bits_in_grp, block_size);
+      uint64_t cur_p_data = GET_BLOCK_DATA(b_data, (n_blocks * keylen) % n_bits_in_grp, block_size);
       b_data_xored = (cur_p_data ^ prev_c_data) & BLOCK_MSK(block_size);
       printf("Got Block[%d]: 0x%lx.\nAfter xoring with 0x%lx we got xored-bits: 0x%lx\n", \
             n_blocks, cur_p_data, prev_c_data, b_data_xored);
@@ -142,7 +142,7 @@ int do_encrypt(const char *f_plaintext, const int iv, const size_t block_size, i
       prev_c_data = keymap[b_data_xored];
       printf("Mapping xored data: 0x%lx -> 0x%lx, using keymap entry: %ld\n", b_data_xored, prev_c_data, b_data_xored);
 
-      c_data |=  prev_c_data << ((n_blocks * 3) % n_bits_in_grp);
+      c_data |=  prev_c_data << ((n_blocks * keylen) % n_bits_in_grp);
       printf("Updating cipher we got: 0x%lx\n", c_data);
       ++n_blocks;
     }
@@ -165,7 +165,7 @@ int do_encrypt(const char *f_plaintext, const int iv, const size_t block_size, i
   return 0;
 }
 
-int do_decrypt(const char *f_ciphertext, const int iv, const size_t block_size, int *r_keymap) {
+int do_decrypt(const char *f_ciphertext, const int iv, const size_t block_size, int *r_keymap, int keylen) {
   int fd = open(f_ciphertext, O_RDONLY, 0700);
   if (fd < 0) {
     printf("Failed to open cipher text file.\n");
@@ -220,7 +220,7 @@ int do_decrypt(const char *f_ciphertext, const int iv, const size_t block_size, 
       //TODO(2): show block bit by bit.
       printf("encrypting block[%d] with size %lu.\n", n_blocks, block_size);
 
-      cur_c_data = GET_BLOCK_DATA(b_data, (n_blocks * 3) % n_bits_in_grp, block_size);
+      cur_c_data = GET_BLOCK_DATA(b_data, (n_blocks * keylen) % n_bits_in_grp, block_size);
       b_data_xored = (r_keymap[cur_c_data] ^ (n_blocks == 0 ? iv : prev_c_data)) & BLOCK_MSK(block_size);
       printf("Mapping Cipher data: 0x%lx -> 0x%x,\nAfter xoring with 0x%lx we got decrypted bits: 0x%lx\n", \
               cur_c_data, r_keymap[cur_c_data], n_blocks == 0 ? iv : prev_c_data, b_data_xored);
@@ -228,7 +228,7 @@ int do_decrypt(const char *f_ciphertext, const int iv, const size_t block_size, 
       prev_c_data = cur_c_data;
 
       // look up the key map && and write to chipher text file
-      p_data |= b_data_xored << ((n_blocks * 3) % n_bits_in_grp);
+      p_data |= b_data_xored << ((n_blocks * keylen) % n_bits_in_grp);
       printf("Updating decrypted cipher we got: 0x%lx\n", p_data);
       ++n_blocks;
     }
@@ -301,7 +301,7 @@ int main (int argc, char *argv[]) {
   uint64_t iv = GEN_IV(block_size);
   printf("\nThe IV is: %lu.\n", iv);
 
-  if (do_encrypt(f_plaintext, iv, block_size, keymap)) {
+  if (do_encrypt(f_plaintext, iv, block_size, keymap, k_len)) {
     printf("Encryption failed.\n");
     exit(1);
   }
@@ -313,7 +313,7 @@ int main (int argc, char *argv[]) {
   int *reverse_keymap = build_reverse_keymap(keymap, k_len);
 
   printf("\nNow start demostraing the decryption process.\n");
-  if (do_decrypt(f_output, iv, block_size, reverse_keymap)) {
+  if (do_decrypt(f_output, iv, block_size, reverse_keymap, k_len)) {
       printf("Decryption failed.\n");
       exit(1);
   }

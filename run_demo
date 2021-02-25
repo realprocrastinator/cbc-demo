@@ -1,4 +1,4 @@
-#! /usr/bin/bash
+#!/bin/bash
 
 echo "Welcome to use my demo program for CBC!"
 echo "Version 1.0"
@@ -59,11 +59,14 @@ echo""
 "$DIR/demoBC"
 
 echo ""
-echo "After Excryption we got binary stream: $(hexdump -C "$FILE_CIPHER")."
+echo "After Excryption we got binary stream:" 
+echo "$(hexdump -C "$FILE_CIPHER")."
 echo ""
-echo "After Decryption we got: $(cat "$FILE_DECRYPT")."
+echo "After Decryption we got:"
+echo "$(cat "$FILE_DECRYPT")."
 echo ""
-echo "After Decryption we got binary stream: $(hexdump -C "$FILE_DECRYPT")."
+echo "After Decryption we got binary stream:"
+echo "$(hexdump -C "$FILE_DECRYPT")."
 
 
 echo "Comparing files after and before encryption."
