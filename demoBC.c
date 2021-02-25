@@ -17,14 +17,18 @@
 #define DEFAULT_CIPHER_OUT "./cipher_out"
 #define DEFAULT_PLAINTEXT "./demo_in"
 #define DEFAULT_DECRYPTED_OUT "./decrypted_text"
-#define DEFAULT_KEYLEN 3
-#define DEFAULT_BLOCKSIZE 3 // welcome to change it!
+#define DEFAULT_KEYLEN 4
+#define DEFAULT_BLOCKSIZE 4 // welcome to change it!
 
 // hard-coded here for demostrating the WK01 
 // short question review using key map 
 // @Lectnotes WK01-03 P32
-int default_keymap[8] = {0b110, 0b001, 0b111, 0b101, 
-                          0b100, 0b011, 0b010, 0b000};
+// int default_keymap[8] = {0b110, 0b001, 0b111, 0b101, 
+//                           0b100, 0b011, 0b010, 0b000};
+int default_keymap[16] = { 0b1100, 0b0010, 0b1001, 0b1010, 
+                           0b1011, 0b0111, 0b0011, 0b0001,
+                           0b1101, 0b1000, 0b0101, 0b0100,
+                           0b1111, 0b1110, 0b0110, 0b0000 };
 
 static bool use_default_keymap = false;
 
