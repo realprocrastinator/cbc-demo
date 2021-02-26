@@ -1,61 +1,89 @@
+/* Library for exncrypting and decrypting */
+
 #include<stdio.h>
 #include<stdlib.h>
-#include<stdbool.h>
 #include<limits.h>
 #include<fcntl.h>
 #include<unistd.h>
 #include<stdint.h>
 #include<string.h>
-#include<assert.h>
+#include"libcbc.h"
+#include"utils.h"
 
-// helpers to find the least common multiple
-#define MAX(a, b) a > b ? a : b;
-#define BLOCK_MSK(block_size) (uint64_t)((1 << block_size) - 1)
-#define GEN_IV(block_size) rand_uint64() & BLOCK_MSK(block_size) 
-#define GET_BLOCK_DATA(data, i, block_size) ((data & (BLOCK_MSK(block_size) << i)) >> i)
+#define MAX_K_LEN 32
 
-#define DEFAULT_CIPHER_OUT "./cipher_out"
-#define DEFAULT_PLAINTEXT "./demo_in"
-#define DEFAULT_DECRYPTED_OUT "./decrypted_text"
-#define DEFAULT_KEYLEN 4
-#define DEFAULT_BLOCKSIZE 4 // welcome to change it!
+/*
+ * helper functions
+ * keymap format 0001:1000
+ */
+int *parse_keymap (const char* f_name, size_t key_len) {
+  FILE *fp;
+  const size_t bufsize = key_len * 2 + 2; // twobyets for ':' and '\n'
+  char *buf = (char*) malloc(bufsize);
+  if (!buf) {
+    printf("Failed to malloc()\n.");
+    return NULL;
+  }
+  memset(buf, 0, bufsize);
 
-// hard-coded here for demostrating the WK01 
-// short question review using key map 
-// @Lectnotes WK01-03 P32
-// int default_keymap[8] = {0b110, 0b001, 0b111, 0b101, 
-//                           0b100, 0b011, 0b010, 0b000};
-int default_keymap[16] = { 0b1100, 0b0010, 0b1001, 0b1010, 
-                           0b1011, 0b0111, 0b0011, 0b0001,
-                           0b1101, 0b1000, 0b0101, 0b0100,
-                           0b1111, 0b1110, 0b0110, 0b0000 };
+  int *keymap = (int*)malloc((1 << key_len) * sizeof(int));
+  if (!keymap) {
+    printf("Failed to malloc()\n.");
+    free(buf);
+    return NULL;
+  }
+  memset(keymap, 0, sizeof((1 << key_len) * sizeof(int)));
+  
+  fp = fopen(f_name, "r");
+  if (!fp) {
+    printf("Failed to open file %s.\n", f_name);
+    free(buf);
+    free(keymap);
+    return NULL;
+  }
 
-static bool use_default_keymap = false;
+  // no matter what user provide we only parse first key_len entries
+  for (int i = 0; i < (1 << key_len); ++i) {
+    size_t rc = fread(buf, bufsize, 1, fp);
+    if (rc != 1) {
+      if (ferror(fp)) {
+        printf("fread() failed %lu bytes read.\n", rc);
+        free(buf);
+        free(keymap);
+        fclose(fp);
+        return NULL;
 
-// helpers to find the least common multiple
-uint64_t lcm(uint64_t a, uint64_t b) {
-  assert(a > 0 && b > 0);
-  uint64_t lcm = MAX(a, b);
-  while (1) {
-    if (lcm % a == 0 && lcm % b == 0) {
-      break;
+      } else if (feof(fp)) {
+        // reach the EOF already
+        break;
+      } else {
+        puts("We should not reach this part otherwise there is a bug.");
+      }
     } else {
-      lcm++;
+     
+      buf[bufsize - 1] = '\0';
+      printf("Got the %dth key entry: %s.\n", i, buf);
+
+       // char *key = strchr(buf, ":") + 1; // move one byte forward to excape the token.
+      int key_value = str2bin(&strchr(buf, ':')[1], key_len);
+      int idx = str2bin(strtok(buf, ":"), key_len);
+      keymap[idx] = key_value;
     }
   }
 
-  return lcm;
+  free(buf);
+  fclose(fp);
+  // do free keymap in caller!
+  return keymap;
 }
 
-// helper to generate 64 bit unsigned
-uint64_t rand_uint64(void) {
-  return ((uint64_t) rand() << 32 | rand());
+
+void show_keymap (int *keymap, size_t k_len) {
+  for (int i = 0; i < 1 << k_len; ++i) {
+    printf("Key[%d]=%d\n", i, keymap[i]);
+  }
 }
 
-int *parse_keymap (const char* f_name, size_t key_len) {
-  printf("Not implemented yet.\n");
-  return NULL;
-}
 
 int *build_reverse_keymap (int keymap[], size_t key_len) {
   const size_t n_elemts = (1 << key_len);
@@ -248,81 +276,5 @@ int do_decrypt(const char *f_ciphertext, const int iv, const size_t block_size, 
   free(buf);
   close(fd);
   close(ofd);
-  return 0;
-}
-
-int main (int argc, char *argv[]) {
-  puts("Demostrating the Block Cipher Chaining Process...");
-
-  char *f_plaintext = DEFAULT_PLAINTEXT;
-  size_t block_size; // Notive this must be dividable by even number or dividable by total plaintext in bits 
-  size_t k_len;
-  int *keymap = default_keymap;
-
-  if (argc == 1) {
-    // using default default_keymap for demostrating lect notes :D
-    use_default_keymap = true;
-    k_len = DEFAULT_KEYLEN;
-    block_size = DEFAULT_BLOCKSIZE; 
-  }
-  else if (argc < 5) {
-    // plaintext, key_map, key_len, block_size in bits
-    printf("Usage: ./demoCBC <plaintext> <blocksize> <key_map> <key_len>,\n \
-        Notice: block_size must be either even number or a factor of the total bits of plaintext,\n \
-        otherwise the algorithm won't work.\n");
-    exit(1);
-  } 
-  else {
-    if (!sscanf(argv[2], "%lu", &block_size)) {   
-      printf("Can't cast string to size_t for 'block_size'.\n");
-      exit(1);
-    }
-    
-    // TODO(1): add padding when key_length and block size mismatch
-    if(!sscanf(argv[4], "%lu", &k_len) || k_len != block_size) {
-      printf("Can't cast string to size_t for 'k_len'.\n");
-      exit(1);
-    }
-  } 
-
-  if (!use_default_keymap) {
-    char *f_keymap = argv[3];
-      
-    // parse keymap file
-    printf("Parsing costum keymap file.\n");
-    keymap = parse_keymap(f_keymap, k_len);
-  }
-
-  printf("\nNow start demostraing the encryption process.\n");
-  char *f_output = DEFAULT_CIPHER_OUT;
-
-  // generate IV with block size, currently won't be able to handle a block larger then
-  // 64 * 8 bits!
-  uint64_t iv = GEN_IV(block_size);
-  printf("\nThe IV is: %lu.\n", iv);
-
-  if (do_encrypt(f_plaintext, iv, block_size, keymap, k_len)) {
-    printf("Encryption failed.\n");
-    exit(1);
-  }
-  printf("\nThe cipher file is saved to %s.\n", f_output);
-
-  // show encryption file;
-
-  // build reverse key_map
-  int *reverse_keymap = build_reverse_keymap(keymap, k_len);
-
-  printf("\nNow start demostraing the decryption process.\n");
-  if (do_decrypt(f_output, iv, block_size, reverse_keymap, k_len)) {
-      printf("Decryption failed.\n");
-      exit(1);
-  }
-  // show decryption file;
-
-  // end clean up if not using the default key map ;)
-  if (!use_default_keymap) {
-    free(keymap);
-  }
-
   return 0;
 }

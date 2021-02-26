@@ -8,7 +8,7 @@ echo "Please also notice the make sure your bloack size is either an even number
 echo "or an odd number but can be divided by total bits of your plaintext, Otherwise it won't work. Enjoy :)!"
 
 DIR=$(pwd)
-PROG=$DIR/demoBC
+PROG=$DIR/demoCBC
 FILE_IN=$DIR/demo_in
 FILE_CIPHER=$DIR/cipher_out
 FILE_DECRYPT=$DIR/decrypted_text
@@ -19,7 +19,8 @@ set -u
 
 echo ""
 echo "Checking required source files..."
-if [[ ! -e "$DIR/Makefile" ]] || [[ ! -e "$DIR/demoBC.c" ]]; then
+
+if [[ ! -e "$DIR/Makefile" ]] || [[ ! -e "$DIR/libcbc.c" ]]; then
   echoerr "Missing the src $PROG or the Makefile in that directory!"
   exit 1
 fi
@@ -49,14 +50,14 @@ fi
 
 # time to go
 echo ""
-make all
+make
 echo "The plaintext to be encrypted is: $(cat "$FILE_IN")."
 echo ""
 echo "After Decryption we got binary stream: $(hexdump -C "$FILE_DECRYPT")."
 
 
 echo""
-"$DIR/demoBC"
+$("$PROG")
 
 echo ""
 echo "After Excryption we got binary stream:" 

@@ -1,4 +1,5 @@
-.vscode/
-demo
-chipher_out
-decrypted_text
+./test
+./cipher_out
+demoCBC
+./decrypted_text
+./.vscode/
